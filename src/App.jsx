@@ -29,19 +29,42 @@ function App() {
     const value = text.trim()
     if (!value) return
 
+    const activeCount = todos.filter((t) => !t.done).length
+
     setTodos((current) => [
       { id: crypto.randomUUID(), text: value, done: false },
       ...current,
     ])
     setText('')
+
+    pendo.track('task_created', {
+      taskTextLength: value.length,
+      totalTaskCount: todos.length + 1,
+      activeTaskCount: activeCount + 1,
+    })
   }
 
   function toggleTodo(id) {
+    const target = todos.find((todo) => todo.id === id)
+
     setTodos((current) =>
       current.map((todo) =>
         todo.id === id ? { ...todo, done: !todo.done } : todo,
       ),
     )
+
+    if (target) {
+      const newDone = !target.done
+      const completed = todos.filter((t) => t.done).length
+      const completedAfter = newDone ? completed + 1 : completed - 1
+
+      pendo.track('task_completion_toggled', {
+        newStatus: newDone ? 'completed' : 'active',
+        totalTaskCount: todos.length,
+        completedTaskCount: completedAfter,
+        remainingTaskCount: todos.length - completedAfter,
+      })
+    }
   }
 
   function deleteTodo(id) {
@@ -49,7 +72,16 @@ function App() {
   }
 
   function clearCompleted() {
+    const completed = todos.filter((todo) => todo.done).length
+    const remainingAfter = todos.length - completed
+
     setTodos((current) => current.filter((todo) => !todo.done))
+
+    pendo.track('completed_tasks_cleared', {
+      clearedCount: completed,
+      remainingTaskCount: remainingAfter,
+      totalTaskCountBefore: todos.length,
+    })
   }
 
   const visibleTodos = todos.filter((todo) => {
